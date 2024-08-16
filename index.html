@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Catégories</title>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Formulaire d'ajout de catégorie -->
+        <div class="form-section">
+            <h1>Ajouter une Catégorie</h1>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label for="titre">Titre</label>
+                    <input type="text" id="titre" name="titre" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="image">Image</label>
+                    <input type="file" id="image" name="image">
+                </div>
+                <button type="submit">Ajouter Catégorie</button>
+                <div id="categoryMessage" class="message"></div>
+            </form>
+
+        </div>
+
+        <!-- Formulaire d'ajout de données à une catégorie -->
+        <div class="form-section">
+            <h1>Ajouter des Données à une Catégorie</h1>
+            <form id="dataForm">
+                <div class="form-group">
+                    <label for="category">Catégorie</label>
+                    <select id="categorySelect" name="category" required>
+                        <option value="">Sélectionner une catégorie</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sousTitre">Sous-titre</label>
+                    <input type="text" id="sousTitre" name="sousTitre">
+                </div>
+                <div class="form-group">
+                    <label for="descriptionSousTitre">Description du Sous-titre</label>
+                    <textarea id="descriptionSousTitre" name="descriptionSousTitre" rows="4"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="descriptionExigences">Description des Exigences</label>
+                    <textarea id="descriptionExigences" name="descriptionExigences" rows="4"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="contact">Contact</label>
+                    <input type="text" id="contact" name="contact">
+                </div>
+                <div class="form-group">
+                    <label for="vip">VIP</label>
+                    <input type="checkbox" id="vip" name="vip">
+                </div>
+                <button type="submit">Ajouter Données</button>
+                <div id="dataMessage" class="message"></div>
+            </form>
+        </div>
+
+        <!-- Liste des données d'une catégorie -->
+        <div class="form-section">
+            <h1>Données de la Catégorie</h1>
+            <select id="viewCategorySelect" name="viewCategory" required>
+                <option value="">Sélectionner une catégorie</option>
+            </select>
+            <div id="dataList" class="data-list"></div>
+        </div>
+
+    </div>
+
+    <script>
+        document.getElementById('categoryForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            try {
+                const response = await fetch('http://localhost:3000/api/categories', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    document.getElementById('categoryMessage').textContent = 'Catégorie ajoutée avec succès !';
+                    document.getElementById('categoryMessage').classList.add('success');
+                    event.target.reset();
+                    updateCategoryList(); // Met à jour la liste des catégories
+                } else {
+                    document.getElementById('categoryMessage').textContent = `Erreur: ${result.message}`;
+                    document.getElementById('categoryMessage').classList.add('error');
+                }
+            } catch (error) {
+                document.getElementById('categoryMessage').textContent = `Erreur: ${error.message}`;
+                document.getElementById('categoryMessage').classList.add('error');
+            }
+        });
+        document.getElementById('dataForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            if (event.target.vip.checked) {
+                formData.set('vip', 'true');
+            } else {
+                formData.set('vip', 'false');
+            }
+            const selectedCategoryId = document.getElementById('categorySelect').value;
+            console.log('Selected Category ID:', selectedCategoryId); // Vérifie la valeur ici
+            if (!selectedCategoryId) {
+                document.getElementById('dataMessage').textContent = 'Veuillez sélectionner une catégorie.';
+                document.getElementById('dataMessage').classList.add('error');
+                return;
+            }
+            try {
+                const response = await fetch(`http://localhost:3000/api/categories/${selectedCategoryId}`, {
+                    method: 'PUT',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    document.getElementById('dataMessage').textContent = 'Données ajoutées avec succès !';
+                    document.getElementById('dataMessage').classList.add('success');
+                    event.target.reset();
+                } else {
+                    document.getElementById('dataMessage').textContent = `Erreur: ${result.message}`;
+                    document.getElementById('dataMessage').classList.add('error');
+                }
+            } catch (error) {
+                document.getElementById('dataMessage').textContent = `Erreur: ${error.message}`;
+                document.getElementById('dataMessage').classList.add('error');
+            }
+        });
+        async function updateCategoryList() {
+            try {
+                const response = await fetch('http://localhost:3000/api/categories');
+                const categories = await response.json();
+                const select = document.getElementById('categorySelect');
+                select.innerHTML = '<option value="">Sélectionner une catégorie</option>';
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category._id; // Utilisez _id pour correspondre à l'ID MongoDB
+                    option.textContent = category.titre;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour de la liste des catégories:', error);
+            }
+        }
+        window.onload = updateCategoryList;
+
+        document.getElementById('viewCategorySelect').addEventListener('change', async (event) => {
+    const selectedCategoryId = event.target.value;
+    if (selectedCategoryId) {
+        loadCategoryData(selectedCategoryId);
+    } else {
+        document.getElementById('dataList').innerHTML = ''; // Vide la liste si aucune catégorie n'est sélectionnée
+    }
+});
+
+async function loadCategoryData(categoryId) {
+    try {
+        const response = await fetch(`http://localhost:3000/api/categories/${categoryId}`);
+        const category = await response.json();
+        const dataList = document.getElementById('dataList');
+        dataList.innerHTML = ''; // Réinitialise la liste
+
+        if (category.sousTitre) {
+            // Créer une ligne pour chaque donnée
+            const dataItem = document.createElement('div');
+            dataItem.classList.add('data-item');
+            dataItem.innerHTML = `
+                <h3>${category.sousTitre}</h3>
+                <p>${category.descriptionSousTitre}</p>
+                <p>${category.descriptionExigences}</p>
+                <p>${category.contact}</p>
+                <p>VIP: ${category.vip ? 'Oui' : 'Non'}</p>
+                <button class="edit-btn" onclick="editData('${categoryId}')">✏️ Éditer</button>
+                <button class="delete-btn" onclick="deleteData('${categoryId}')">🗑️ Supprimer</button>
+            `;
+            dataList.appendChild(dataItem);
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement des données de la catégorie:', error);
+    }
+}
+
+async function deleteData(categoryId) {
+    if (confirm('Voulez-vous vraiment supprimer cette catégorie?')) {
+        try {
+            const response = await fetch(`http://localhost:3000/api/categories/${categoryId}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                document.getElementById('dataMessage').textContent = 'Catégorie supprimée avec succès!';
+                document.getElementById('dataMessage').classList.add('success');
+                loadCategoryData(categoryId); // Recharger la liste des données
+                updateCategoryList(); // Mettre à jour la liste des catégories
+            } else {
+                const result = await response.json();
+                document.getElementById('dataMessage').textContent = `Erreur: ${result.message}`;
+                document.getElementById('dataMessage').classList.add('error');
+            }
+        } catch (error) {
+            document.getElementById('dataMessage').textContent = `Erreur: ${error.message}`;
+            document.getElementById('dataMessage').classList.add('error');
+        }
+    }
+}
+
+function editData(categoryId) {
+    fetch(`http://localhost:3000/api/categories/${categoryId}`)
+        .then(response => response.json())
+        .then(category => {
+            document.getElementById('categorySelect').value = category._id;
+            document.getElementById('sousTitre').value = category.sousTitre;
+            document.getElementById('descriptionSousTitre').value = category.descriptionSousTitre;
+            document.getElementById('descriptionExigences').value = category.descriptionExigences;
+            document.getElementById('contact').value = category.contact;
+            document.getElementById('vip').checked = category.vip;
+
+            document.querySelector('#dataForm button[type="submit"]').textContent = 'Modifier Données';
+        })
+        .catch(error => {
+            console.error('Erreur lors de la récupération des données pour édition:', error);
+        });
+}
+
+// Mettre à jour la liste des catégories dans le formulaire de visualisation
+async function updateCategoryViewList() {
+    try {
+        const response = await fetch('http://localhost:3000/api/categories');
+        const categories = await response.json();
+        const select = document.getElementById('viewCategorySelect');
+        select.innerHTML = '<option value="">Sélectionner une catégorie</option>';
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category._id;
+            option.textContent = category.titre;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour de la liste des catégories:', error);
+    }
+}
+
+// Initialiser la liste des catégories au chargement de la page
+window.onload = () => {
+    updateCategoryList();
+    updateCategoryViewList(); // Mettre à jour la liste des catégories pour la visualisation
+};
+
+    </script>
+</body>
+
+</html>
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #e9ecef;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        height: 100vh;
+        margin: 0;
+        padding-top: 30px;
+    }
+
+    .container {
+        background: #ffffff;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 800px;
+    }
+
+    .form-section {
+        margin-bottom: 40px;
+    }
+
+    h1 {
+        text-align: center;
+        color: #343a40;
+        margin-bottom: 25px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    input[type="text"],
+    input[type="file"],
+    textarea,
+    select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ced4da;
+        border-radius: 8px;
+        box-sizing: border-box;
+    }
+
+    input[type="checkbox"] {
+        margin-right: 10px;
+    }
+
+    button {
+        background-color: #007bff;
+        color: #ffffff;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 18px;
+        width: 100%;
+        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #0056b3;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .message {
+        margin-top: 20px;
+        text-align: center;
+        font-size: 16px;
+    }
+
+    .message.success {
+        color: #28a745;
+    }
+
+    .message.error {
+        color: #dc3545;
+    }
+</style>
